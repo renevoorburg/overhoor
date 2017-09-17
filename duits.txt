@@ -1,0 +1,6 @@
+der Lehrer = de leraar
+die Lehrerin = de lerares
+der Schüler = de leerling ; de scholier
+die Schülerin = de leerlinge ; de scholiere
+der Herr = de heer
+die Frau = de vrouw
