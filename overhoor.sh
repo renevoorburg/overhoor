@@ -2,7 +2,7 @@
 
 # overhoor.sh
 # @author rene voorburg
-# @version 2017-09-20
+# @version 2017-09-23
 
 trap ctrl_c INT
 
@@ -13,6 +13,8 @@ errorfile=error_$$
 correct=0
 wrong=0
 order=0  # (0= left to right, 1=right to left, 2=random)
+
+RET=''   # used to store return value of functions
 
 usage()
 {
@@ -51,8 +53,10 @@ ctrl_c()
 wait_for_key()
 {
     local key="$1"
+    local msg="$2"
     local pressed
 
+    echo -e "$2"
     while : ; do
         read -st 1 -n ${#key} pressed 
         if [[ "$pressed" = "$key" ]] ; then
@@ -66,23 +70,34 @@ strip_spaces()
     echo "$1" | perl -pe 's/\s\s+//g' | perl -pe 's/^\s//' | perl -pe 's/\s$//' | perl -pe 's/{.*}//'
 }
 
-left_part()
+print_array() 
 {
-    echo $(strip_spaces "`echo "$1" | perl -pe 's/;.*$//'`")
+    local e
+    local sep=''
+
+    for e; do
+        echo -n "$sep\""
+        echo -n `strip_spaces "$e"`
+        echo -n "\""
+        sep=", "
+    done
 }
 
-right_part()
+in_array_stripped () 
 {
-    echo $(strip_spaces "`echo "$1" | perl -pe 's/^.*;//'`")
+    local e
+    local match="`strip_spaces "$1"`"
+    shift
+    for e; do [[ "`strip_spaces "$e"`" == "$match" ]] && return 0; done
+    return 1
 }
 
-select_question_part()
+get_parts_array()
 {
-    if [[ "$((RANDOM % 2))" == "1" ]] ; then
-        echo $(left_part "$1")
-    else
-        echo $(right_part "$1")
-    fi
+    local in="$1"
+    local IFS=';'
+
+    read -r -a RET <<< "$in"
 }
 
 randomize_file()
@@ -145,42 +160,47 @@ clear
 randomize_file $infile $workfile
 while [ $(cat $workfile | grep "=" | wc -l) -gt 0 ]  ; do
 
-    for regel in `cat $workfile | grep "="` ; do
-        left="`echo "$regel" | perl -pe 's@=.*@@g'`"
-        right="`echo "$regel" | perl -pe 's@.*=@@g'`"
-
+    for line in `cat $workfile | grep "="` ; do
+    
+    	get_parts_array "`echo "$line" | perl -pe 's@=.*@@g'`"
+    	left_array=("${RET[@]}")
+   		
+   		get_parts_array "`echo "$line" | perl -pe 's@.*=@@g'`"
+   		right_array=("${RET[@]}")
+    
         if  [[ "$order" == "1"  ||  "$order" == "2"  &&  "$((RANDOM % 2))" == "1" ]]  ; then
-            question="$right"
-            answer=$(left_part "$left")
-            alt=$(right_part "$left")
+            questions_array=("${right_array[@]}")
+            answers_array=("${left_array[@]}")
         else
-            question="$left"
-            answer=$(left_part "$right")
-            alt=$(right_part "$right")
+            questions_array=("${left_array[@]}")
+            answers_array=("${right_array[@]}")
         fi
 
         echo -ne "\n "
-        echo $(select_question_part "$question")
+        echo `strip_spaces "${questions_array[$RANDOM % ${#questions_array[@]} ]}"`
         echo -ne "\n "
         read given
-        given=$(strip_spaces "$given")
         echo
-
-        if [[ "$given" == "$answer" || "$given" == "$alt" ]] ; then
+        
+        in_array_stripped "$given" "${answers_array[@]}"
+        if [ $? -ne 0 ]; then
+		    ((wrong++))
+            echo -n " fout,  (correct: "
+            print_array "${answers_array[@]}"
+            echo ")"
+            wait_for_key " " "\n [spatiebalk] om door te gaan" 
+            echo "$line" >> $errorfile
+        else
             ((correct++))
-            if [[ "$answer" != "$alt" ]] ; then
-                echo " correct (\"$answer\", \"$alt\")" 
+            if [[ "${#answers_array[@]}" != "1" ]] ; then
+                echo -n " correct (" 
+                print_array "${answers_array[@]}"
+                echo ")"
                 sleep 2
             else 
                 echo " correct"
                 sleep 1
             fi
-        else
-            ((wrong++))
-            echo " fout, moest zijn \"$answer\""
-            echo -e "\n [spatiebalk] om door te gaan" 
-            wait_for_key " "
-            echo "$left = $right" >> $errorfile
         fi
         echo
         clear
