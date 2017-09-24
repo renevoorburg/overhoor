@@ -46,7 +46,7 @@ ctrl_c()
     fi
         if [ -e $workfile ] ; then
         rm $workfile
-    fi    
+    fi 
     exit 1
 }
 
@@ -58,7 +58,8 @@ wait_for_key()
 
     echo -e "$2"
     while : ; do
-        read -st 1 -n ${#key} pressed 
+        read -t 1 -n 1 pressed 
+        #read -t 1 -n ${#key} pressed 
         if [[ "$pressed" = "$key" ]] ; then
             break
         fi
@@ -67,7 +68,13 @@ wait_for_key()
 
 strip_spaces()
 {
-    echo "$1" | perl -pe 's/\s\s+//g' | perl -pe 's/^\s//' | perl -pe 's/\s$//' | perl -pe 's/{.*}//'
+    echo "$1" | perl -pe 's/\s\s+//g' | perl -pe 's/^\s//' | perl -pe 's/\s$//'
+}
+
+strip()
+{
+    #echo "$1" | perl -pe 's/{.*}//' | perl -pe 's/\s\s+//g' | perl -pe 's/^\s//' | perl -pe 's/\s$//' 
+    strip_spaces "`echo "$1" | perl -pe 's/{.*}//'`"
 }
 
 print_array() 
@@ -77,7 +84,7 @@ print_array()
 
     for e; do
         echo -n "$sep\""
-        echo -n `strip_spaces "$e"`
+        echo -n `strip "$e"`
         echo -n "\""
         sep=", "
     done
@@ -86,9 +93,9 @@ print_array()
 in_array_stripped () 
 {
     local e
-    local match="`strip_spaces "$1"`"
+    local match="`strip "$1"`"
     shift
-    for e; do [[ "`strip_spaces "$e"`" == "$match" ]] && return 0; done
+    for e; do [[ "`strip "$e"`" == "$match" ]] && return 0; done
     return 1
 }
 
