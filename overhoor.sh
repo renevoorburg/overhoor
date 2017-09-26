@@ -21,7 +21,7 @@ usage()
     echo "Start het programma met:"
     echo " $0 bestandsnaam"
     echo "of"
-    echo " $0 [opties] bestandsnaam"
+    echo " $0 [opties] bestandsnaam [bestandsnaam]"
     echo
     echo "Het bestand bevat tekst met regels als:"
     echo " vraag = antwoord"
@@ -30,11 +30,12 @@ usage()
     echo "Als er twee antwoorden goed zijn dan kan dat aangeduid worden als:"
     echo " vraag = antwoord1 ; antwoord 2"
     echo
-    echo "De bestanden maak je zelf met een teksteditor (gedit, TextEditor e.d.) of download je van http://www.woordjesleren.nl ."
+    echo "De bestanden maak je zelf met een teksteditor (gedit, TextEditor e.d.) of download je van http://www.woordjesleren.nl. "
+    echo "Je kan één of meerdere bestanden met vragen opgeven. De vragen worden in willekeurige volgorde gesteld."
     echo
-    echo "Het is mogelijk om de vragen in omgekeerde volgorde te stellen. Start het programma hiervoor met:"
+    echo "Het is mogelijk om vraag en antwoord om te keren. Start het programma hiervoor met:"
     echo " $0 -q r bestandsnaam  (ofwel '--question r' => 'right to left')".
-    echo "Vragen kunnen ook in beide richtingen gesteld worden. Start het programma hiervoor met:"
+    echo "Vragen en antwoorden kunnen ook toevalsgewijs omgewisseld worden. Start het programma hiervoor met:"
     echo " $0 -q b bestandsnaam  (ofwel '--question b' => 'both directions')".
     echo
     echo "Beperk het aantal vragen dat gesteld wordt met de optie '-l aantal' (of '--limit aantal'):"
@@ -162,6 +163,13 @@ while [[ $# -gt 0 ]] ; do
     esac
     shift # past argument or value
 done
+if [[ -z "$FILES" ]] ; then
+	echo "Fout; geen bestandsnaam opgegeven."
+	echo
+	usage
+	exit 1
+fi
+
 
 # main
 clear
