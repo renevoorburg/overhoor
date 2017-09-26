@@ -2,18 +2,18 @@
 
 # overhoor.sh
 # @author rene voorburg
-# @version 2017-09-23
+# @version 2017-09-26
 
 trap ctrl_c INT
 
 IFS=$'\n'
-infile=""
-workfile=work_$$
-errorfile=error_$$
-correct=0
-wrong=0
-order=0  # (0= left to right, 1=right to left, 2=random)
-
+INFILE=""
+WORKFILE=work_$$
+ERRORFILE=error_$$
+CORRECT=0
+WRONG=0
+ORDER=0  # (0= left to right, 1=right to left, 2=random)
+LIMITER='cat'
 RET=''   # used to store return value of functions
 
 usage()
@@ -37,15 +37,18 @@ usage()
     echo "Vragen kunnen ook in beide richtingen gesteld worden. Start het programma hiervoor met:"
     echo " $0 -q b bestandsnaam  (ofwel '--question b' => 'both directions')".
     echo
+    echo "Beperk het aantal vragen dat gesteld wordt met de optie '-l aantal' (of '--limit aantal'):"
+    echo " $0 -l 10 bestandsnaam (stelt maximaal 10 vragen)."
+    echo
 }
 
 ctrl_c()
 {
-    if [ -e $errorfile ] ; then
-        rm $errorfile
+    if [ -e $ERRORFILE ] ; then
+        rm $ERRORFILE
     fi
-        if [ -e $workfile ] ; then
-        rm $workfile
+        if [ -e $WORKFILE ] ; then
+        rm $WORKFILE
     fi 
     exit 1
 }
@@ -73,7 +76,6 @@ strip_spaces()
 
 strip()
 {
-    #echo "$1" | perl -pe 's/{.*}//' | perl -pe 's/\s\s+//g' | perl -pe 's/^\s//' | perl -pe 's/\s$//' 
     strip_spaces "`echo "$1" | perl -pe 's/{.*}//'`"
 }
 
@@ -109,11 +111,11 @@ get_parts_array()
 
 randomize_file()
 {
-    local infile=$1
+    local INFILE=$1
     local outfile=$2
     local line
     
-    for line in `cat $infile` ; do
+    for line in `cat $INFILE` ; do
         echo "$RANDOM $line"
     done | sort -n | perl -pe 's/^[0-9]+ //' > $outfile
 }
@@ -126,16 +128,20 @@ while [[ $# -gt 1 ]] ; do
         -q|--question)
         case "$2" in
             "r")
-            order=1
+            ORDER=1
             ;;
             "b")
-            order=2
+            ORDER=2
             ;;
             *)
-            order=1
+            ORDER=1
             ;;
         esac
         shift # past argument
+        ;;
+        -l|--limit)
+        LIMITER="head -n $2"
+        shift
         ;;
         -h|--help)
         usage
@@ -156,18 +162,18 @@ if [ $# -eq 0 ] ; then
     exit 1
 fi
 
-infile=$1
-if [ ! -e $infile ] ; then
+INFILE=$1
+if [ ! -e $INFILE ] ; then
     echo "Bestand met vragen en antwoorden ($1) niet gevonden."
     exit 1
 fi
 
 # main
 clear
-randomize_file $infile $workfile
-while [ $(cat $workfile | grep "=" | wc -l) -gt 0 ]  ; do
+randomize_file $INFILE $WORKFILE
+while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
 
-    for line in `cat $workfile | grep "="` ; do
+    for line in `cat $WORKFILE | grep "=" | eval "$LIMITER" ` ; do
     
     	get_parts_array "`echo "$line" | perl -pe 's@=.*@@g'`"
     	left_array=("${RET[@]}")
@@ -175,7 +181,7 @@ while [ $(cat $workfile | grep "=" | wc -l) -gt 0 ]  ; do
    		get_parts_array "`echo "$line" | perl -pe 's@.*=@@g'`"
    		right_array=("${RET[@]}")
     
-        if  [[ "$order" == "1"  ||  "$order" == "2"  &&  "$((RANDOM % 2))" == "1" ]]  ; then
+        if  [[ "$ORDER" == "1"  ||  "$ORDER" == "2"  &&  "$((RANDOM % 2))" == "1" ]]  ; then
             questions_array=("${right_array[@]}")
             answers_array=("${left_array[@]}")
         else
@@ -191,21 +197,21 @@ while [ $(cat $workfile | grep "=" | wc -l) -gt 0 ]  ; do
         
         in_array_stripped "$given" "${answers_array[@]}"
         if [ $? -ne 0 ]; then
-		    ((wrong++))
-            echo -n " fout,  (correct: "
+		    ((WRONG++))
+            echo -n " fout,  (CORRECT: "
             print_array "${answers_array[@]}"
             echo ")"
             wait_for_key " " "\n [spatiebalk] om door te gaan" 
-            echo "$line" >> $errorfile
+            echo "$line" >> $ERRORFILE
         else
-            ((correct++))
+            ((CORRECT++))
             if [[ "${#answers_array[@]}" != "1" ]] ; then
-                echo -n " correct (" 
+                echo -n " CORRECT (" 
                 print_array "${answers_array[@]}"
                 echo ")"
                 sleep 2
             else 
-                echo " correct"
+                echo " CORRECT"
                 sleep 1
             fi
         fi
@@ -213,12 +219,12 @@ while [ $(cat $workfile | grep "=" | wc -l) -gt 0 ]  ; do
         clear
     done
 
-    if [ -e $errorfile ] ; then
-        randomize_file $errorfile $workfile
-        rm $errorfile
+    if [ -e $ERRORFILE ] ; then
+        randomize_file $ERRORFILE $WORKFILE
+        rm $ERRORFILE
     else
-        > $workfile
+        > $WORKFILE
     fi    
 done
-rm $workfile
-echo -en "Aantal goed: $correct\nAantal fout: $wrong\n"
+rm $WORKFILE
+echo -en "Aantal goed: $CORRECT\nAantal fout: $WRONG\n"
