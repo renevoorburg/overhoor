@@ -7,7 +7,7 @@
 trap ctrl_c INT
 
 IFS=$'\n'
-INFILE=""
+FILES=''
 WORKFILE=work_$$
 ERRORFILE=error_$$
 CORRECT=0
@@ -122,55 +122,53 @@ randomize_file()
 
 
 # verify parameters given:
-while [[ $# -gt 1 ]] ; do
+while [[ $# -gt 0 ]] ; do
     key="$1"
     case $key in
         -q|--question)
-        case "$2" in
-            "r")
-            ORDER=1
-            ;;
-            "b")
-            ORDER=2
-            ;;
-            *)
-            ORDER=1
-            ;;
-        esac
-        shift # past argument
-        ;;
+        	case "$2" in
+            	"r")
+            		ORDER=1
+            		;;
+        		"b")
+            		ORDER=2
+            		;;
+            	*)
+            		ORDER=1
+            		;;
+        	esac
+        	shift # past argument
+        	;;
         -l|--limit)
-        LIMITER="head -n $2"
-        shift
-        ;;
+        	LIMITER="head -n $2"
+        	shift
+        	;;
         -h|--help)
-        usage
-        exit 1
-        ;;
+        	usage
+        	exit 1
+        	;;
         *)
-        echo "Optie $key onbekend."
-        usage
-        exit 1
-        ;;
+        	if [[ ${key:0:1} == "-" ]] ; then 
+        		echo "Optie $key onbekend."
+        		usage
+        		exit 1
+        	elif [ ! -e $key ] ; then
+    			echo "Bestand met vragen en antwoorden ($key) niet gevonden."
+    			exit 1
+			else
+				FILES="$FILES $key"
+        	fi
+        	;;
     esac
     shift # past argument or value
 done
 
-if [ $# -eq 0 ] ; then
-    echo "Geen bestand met vragen en antwoorden opgegeven."
-    usage
-    exit 1
-fi
-
-INFILE=$1
-if [ ! -e $INFILE ] ; then
-    echo "Bestand met vragen en antwoorden ($1) niet gevonden."
-    exit 1
-fi
-
 # main
 clear
-randomize_file $INFILE $WORKFILE
+eval "cat $FILES > $ERRORFILE"
+randomize_file $ERRORFILE $WORKFILE
+> $ERRORFILE
+
 while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
 
     for line in `cat $WORKFILE | grep "=" | eval "$LIMITER" ` ; do
