@@ -2,7 +2,7 @@
 
 # overhoor.sh
 # @author rene voorburg
-# @version 2017-09-26
+# @version 2017-11-30
 
 trap ctrl_c INT
 
@@ -26,7 +26,7 @@ usage()
     echo "Het bestand bevat tekst met regels als:"
     echo " vraag = antwoord"
     echo " het meisje = la fille "
-    echo 
+    echo
     echo "Als er twee antwoorden goed zijn dan kan dat aangeduid worden als:"
     echo " vraag = antwoord1 ; antwoord 2"
     echo
@@ -50,7 +50,7 @@ ctrl_c()
     fi
         if [ -e $WORKFILE ] ; then
         rm $WORKFILE
-    fi 
+    fi
     exit 1
 }
 
@@ -62,8 +62,7 @@ wait_for_key()
 
     echo -e "$2"
     while : ; do
-        read -t 1 -n 1 pressed 
-        #read -t 1 -n ${#key} pressed 
+        read -t 1 -n 1 pressed
         if [[ "$pressed" = "$key" ]] ; then
             break
         fi
@@ -80,7 +79,7 @@ strip()
     strip_spaces "`echo "$1" | perl -pe 's/{.*}//'`"
 }
 
-print_array() 
+print_array()
 {
     local e
     local sep=''
@@ -93,7 +92,7 @@ print_array()
     done
 }
 
-in_array_stripped () 
+in_array_stripped ()
 {
     local e
     local match="`strip "$1"`"
@@ -115,7 +114,7 @@ randomize_file()
     local INFILE=$1
     local outfile=$2
     local line
-    
+
     for line in `cat $INFILE` ; do
         echo "$RANDOM $line"
     done | sort -n | perl -pe 's/^[0-9]+ //' > $outfile
@@ -149,7 +148,7 @@ while [[ $# -gt 0 ]] ; do
         	exit 1
         	;;
         *)
-        	if [[ ${key:0:1} == "-" ]] ; then 
+        	if [[ ${key:0:1} == "-" ]] ; then
         		echo "Optie $key onbekend."
         		usage
         		exit 1
@@ -176,17 +175,18 @@ clear
 eval "cat $FILES > $ERRORFILE"
 randomize_file $ERRORFILE $WORKFILE
 > $ERRORFILE
+TOTAL=`cat $WORKFILE | wc -l | awk '{print$1}'`
 
 while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
 
     for line in `cat $WORKFILE | grep "=" | eval "$LIMITER" ` ; do
-    
+
     	get_parts_array "`echo "$line" | perl -pe 's@=.*@@g'`"
     	left_array=("${RET[@]}")
-   		
+
    		get_parts_array "`echo "$line" | perl -pe 's@.*=@@g'`"
    		right_array=("${RET[@]}")
-    
+
         if  [[ "$ORDER" == "1"  ||  "$ORDER" == "2"  &&  "$((RANDOM % 2))" == "1" ]]  ; then
             questions_array=("${right_array[@]}")
             answers_array=("${left_array[@]}")
@@ -195,28 +195,31 @@ while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
             answers_array=("${right_array[@]}")
         fi
 
+        PERCENT=$((200*$CORRECT/$TOTAL % 2 + 100*$CORRECT/$TOTAL))
+        echo " ${CORRECT}/${TOTAL} (${PERCENT} %)"
+
         echo -ne "\n "
         echo `strip_spaces "${questions_array[$RANDOM % ${#questions_array[@]} ]}"`
         echo -ne "\n "
         read given
         echo
-        
+
         in_array_stripped "$given" "${answers_array[@]}"
         if [ $? -ne 0 ]; then
 		    ((WRONG++))
             echo -n " fout,  (CORRECT: "
             print_array "${answers_array[@]}"
             echo ")"
-            wait_for_key " " "\n [spatiebalk] om door te gaan" 
+            wait_for_key " " "\n [spatiebalk] om door te gaan"
             echo "$line" >> $ERRORFILE
         else
             ((CORRECT++))
             if [[ "${#answers_array[@]}" != "1" ]] ; then
-                echo -n " CORRECT (" 
+                echo -n " CORRECT ("
                 print_array "${answers_array[@]}"
                 echo ")"
                 sleep 2
-            else 
+            else
                 echo " CORRECT"
                 sleep 1
             fi
@@ -230,7 +233,7 @@ while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
         rm $ERRORFILE
     else
         > $WORKFILE
-    fi    
+    fi
 done
 rm $WORKFILE
 echo -en "Aantal goed: $CORRECT\nAantal fout: $WRONG\n"
