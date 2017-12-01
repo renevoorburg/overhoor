@@ -2,14 +2,14 @@
 
 # overhoor.sh
 # @author rene voorburg
-# @version 2017-11-30
+# @version 2017-12-01
 
 trap ctrl_c INT
 
 IFS=$'\n'
 FILES=''
 WORKFILE=work_$$
-ERRORFILE=error_$$
+TODOFILE=todo_$$
 CORRECT=0
 WRONG=0
 ORDER=0  # (0= left to right, 1=right to left, 2=random)
@@ -45,8 +45,8 @@ usage()
 
 ctrl_c()
 {
-    if [ -e $ERRORFILE ] ; then
-        rm $ERRORFILE
+    if [ -e $TODOFILE ] ; then
+        rm $TODOFILE
     fi
         if [ -e $WORKFILE ] ; then
         rm $WORKFILE
@@ -120,6 +120,40 @@ randomize_file()
     done | sort -n | perl -pe 's/^[0-9]+ //' > $outfile
 }
 
+randomize_question()
+{
+    local INFILE=$1
+    local outfile=$2
+    local line
+
+    for line in `cat $INFILE` ; do
+        echo "$RANDOM $line"
+    done | sort -n | perl -pe 's/^[0-9]+ //' > $outfile
+}
+
+order_qa()
+{
+    local ORDER=$1
+    local FILE=$2
+    local TMP_FILE=tmp_$$
+    local line
+
+    for line in `cat $FILE` ; do
+
+        if  [[ "$ORDER" == "1" ]]  ; then
+            #flip order
+            echo "$line" | awk -F= '{print$2"="$1}'
+        elif [[ "$ORDER" == "2" ]] ; then
+            #both directions
+            echo "$line"
+            echo "$line" | awk -F= '{print$2"="$1}'
+        else
+            #unaltered
+            echo "$line"
+        fi
+    done | cat - > $TMP_FILE
+    mv $TMP_FILE $FILE
+}
 
 # verify parameters given:
 while [[ $# -gt 0 ]] ; do
@@ -172,30 +206,24 @@ fi
 
 # main
 clear
-eval "cat $FILES > $ERRORFILE"
-randomize_file $ERRORFILE $WORKFILE
-> $ERRORFILE
+eval "cat $FILES | grep "=" | sort | uniq > $TODOFILE"
+order_qa $ORDER $TODOFILE
+randomize_file $TODOFILE $WORKFILE
+> $TODOFILE
 TOTAL=`cat $WORKFILE | wc -l | awk '{print$1}'`
 
-while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
+while [ $(cat $WORKFILE | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
 
     for line in `cat $WORKFILE | grep "=" | eval "$LIMITER" ` ; do
 
     	get_parts_array "`echo "$line" | perl -pe 's@=.*@@g'`"
-    	left_array=("${RET[@]}")
+    	questions_array=("${RET[@]}")
 
    		get_parts_array "`echo "$line" | perl -pe 's@.*=@@g'`"
-   		right_array=("${RET[@]}")
-
-        if  [[ "$ORDER" == "1"  ||  "$ORDER" == "2"  &&  "$((RANDOM % 2))" == "1" ]]  ; then
-            questions_array=("${right_array[@]}")
-            answers_array=("${left_array[@]}")
-        else
-            questions_array=("${left_array[@]}")
-            answers_array=("${right_array[@]}")
-        fi
+   		answers_array=("${RET[@]}")
 
         PERCENT=$((200*$CORRECT/$TOTAL % 2 + 100*$CORRECT/$TOTAL))
+        echo
         echo " ${CORRECT}/${TOTAL} (${PERCENT} %)"
 
         echo -ne "\n "
@@ -211,7 +239,7 @@ while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
             print_array "${answers_array[@]}"
             echo ")"
             wait_for_key " " "\n [spatiebalk] om door te gaan"
-            echo "$line" >> $ERRORFILE
+            echo "$line" >> $TODOFILE
         else
             ((CORRECT++))
             if [[ "${#answers_array[@]}" != "1" ]] ; then
@@ -228,12 +256,12 @@ while [ $(cat $WORKFILE | grep "=" | eval "$LIMITER" | wc -l) -gt 0 ]  ; do
         clear
     done
 
-    if [ -e $ERRORFILE ] ; then
-        randomize_file $ERRORFILE $WORKFILE
-        rm $ERRORFILE
+    if [ -e $TODOFILE ] ; then
+        randomize_file $TODOFILE $WORKFILE
+        rm $TODOFILE
     else
         > $WORKFILE
     fi
 done
 rm $WORKFILE
-echo -en "Aantal goed: $CORRECT\nAantal fout: $WRONG\n"
+echo -en "\n Aantal goed: $CORRECT\n Aantal fout: $WRONG\n\n"
